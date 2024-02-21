@@ -1,6 +1,7 @@
 # handout stuff
 handout_code
 *.DS_Store
+results.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
