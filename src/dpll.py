@@ -4,35 +4,41 @@ def unit_propagation(sat_instance):
     """
     Perform unit propagation on the given SAT instance.
     """
-    print("starting unit prop")
-    units = []
+    print("[UNIT-PROP] starting unit prop")
+    unit = None
 
-    # find all the unit clauses
+    # find one unit clause
     for clause in sat_instance.clauses:
         if len(clause) == 1:
             elt = clause.pop()
             clause.add(elt)
-            units.append(elt)
+            unit = elt
+            break
     
-    # remove all clauses containing the units
-    sat_instance.clauses = [clause for clause in sat_instance.clauses if not any(unit in clause for unit in units)]
+    # if we don't find any units, then do nothing
+    if not unit:
+        print("[UNIT-PROP] did not find any units")
+        return
+
+    print("[UNIT-PROP] found unit:", unit)
+    # remove all clauses containing the unit
+    sat_instance.clauses = [clause for clause in sat_instance.clauses if not unit in clause]
     
     # remove all instances of the negation of the unit from all clauses
     for i in range(len(sat_instance.clauses)):
-        sat_instance.clauses[i] = {literal for literal in sat_instance.clauses[i] if -literal not in units}
+        sat_instance.clauses[i] = {literal for literal in sat_instance.clauses[i] if not (-literal == unit)}
     
-    # assign the units
-    for unit in units:
-        sat_instance.assignments[abs(unit)] = unit > 0
+    # assign the unit
+    sat_instance.assignments[abs(unit)] = unit > 0
     
-    print("clauses after unit prop:", sat_instance.clauses)
+    print("[UNIT-PROP] clauses after unit prop:", sat_instance.clauses)
 
 
 def pure_literal_elimination(sat_instance):
     """
     Perform pure literal elimination on the given SAT instance.
     """
-    print("starting PLE")
+    print("[PLE] starting PLE")
     # find all the literals
     literals = set()
     for clause in sat_instance.clauses:
@@ -45,7 +51,7 @@ def pure_literal_elimination(sat_instance):
         if -literal not in literals:
             pure_literals.add(literal)
     
-    print("PLE pure literals found:", pure_literals)
+    print("[PLE] PLE pure literals found:", pure_literals)
     
     # remove all clauses containing the pure literals
     sat_instance.clauses = [clause for clause in sat_instance.clauses if not any(literal in clause for literal in pure_literals)]
@@ -54,7 +60,7 @@ def pure_literal_elimination(sat_instance):
     for literal in pure_literals:
         sat_instance.assignments[abs(literal)] = literal > 0
     
-    print("clauses after PLE:", sat_instance.clauses)
+    print("[PLE] clauses after PLE:", sat_instance.clauses)
 
 def check_done(sat_instance):
     """
@@ -75,8 +81,10 @@ def solve(sat_instance):
     status, sat, assignments = check_done(sat_instance)
     if status == "done": return sat, assignments
 
+    print("instance before unit prop", sat_instance)
     # Perform unit propagation
     unit_propagation(sat_instance)
+    print("instance after unit prop", sat_instance)
 
     status, sat, assignments = check_done(sat_instance)
     if status == "done": return sat, assignments
@@ -93,17 +101,18 @@ def solve(sat_instance):
 
     # Create a new SAT instance with the literal assigned to True
     sat_instance_true = copy.deepcopy(sat_instance)
-    sat_instance_true.assignments[abs(literal)] = literal > 0
+    # sat_instance_true.assignments[abs(literal)] = literal > 0
     sat_instance_true.clauses.append({literal})
 
     # Create a new SAT instance with the literal assigned to False
     sat_instance_false = copy.deepcopy(sat_instance)
-    sat_instance_false.assignments[abs(literal)] = literal < 0
+    # sat_instance_false.assignments[abs(literal)] = literal < 0
     sat_instance_false.clauses.append({-literal})
 
 
     # Recursively call DPLL on the new SAT instances
     print("branching on true for", literal)
+    print("instance before branching", sat_instance_true)
     if solve(sat_instance_true)[0]:
         return True, sat_instance_true.assignments
     else:

@@ -29,7 +29,7 @@ if __name__ == "__main__":
         # fill in any missing assignments with True defualt
         for variable in sat_instance.variables:
             if variable not in assignments:
-                assignments[variable] = True
+                assignments[variable] = False
         
         # transform assignments to a string
         output["Solution"] = (" ".join([f"{k} {v}" for k, v in assignments.items()])).lower()

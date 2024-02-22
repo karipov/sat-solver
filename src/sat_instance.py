@@ -10,7 +10,8 @@ class SATInstance:
         out = "SAT Instance:\n" \
               + f"Number of variables: {self.num_vars}\n" \
               + f"Number of clauses: {self.num_clauses}\n" \
-              + f"Variables: {self.variables}\nClauses: {self.clauses}\n\n"
+              + f"Variables: {self.variables}\nClauses: {self.clauses}\n" \
+              + f"Current assignments: {self.assignments}\n\n"
         return out
 
     def add_variable(self, variable):
