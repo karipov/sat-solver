@@ -1,45 +1,43 @@
+import argparse
+import time
+import logging
+import sys
+
+import numpy as np
+
 from dpll import solve
-from dimacs import parse_cnf_file
 from verify import verify_sat
+from sat_instance import SatInstance
 
 # Run arguments
-import argparse
 parser = argparse.ArgumentParser(description="Solve a SAT instance using the DPLL algorithm.")
 parser.add_argument("input_file", help="The input file containing the SAT instance in DIMACS format.")
 args = parser.parse_args()
 
-# Timer
-import time
+# logging
+logging.basicConfig(level=logging.WARN, format="[%(levelname)s] %(message)s")
+
 
 if __name__ == "__main__":
-    sat_instance = parse_cnf_file(args.input_file)
+    # read the SAT instance from the input file
+    sat_instance = SatInstance.from_dimacs(args.input_file)
     print(sat_instance)
 
+    # initialize the assignments array
+    assignments = np.zeros(sat_instance.num_vars, dtype=int)
+
+    # solve the SAT instance with timer
     start_time = time.time()
-    sat_status, assignments = solve(sat_instance)
+    sat_status = solve(sat_instance, assignments)
     end_time = time.time()
 
-    print()
-    output = {}
-    output["Instance"] = args.input_file.split("/")[-1]
-    output["Result"] = "SAT" if sat_status else "UNSAT"
-    output["Time"] = round(end_time - start_time, 2)
+    print(f"SAT status: {sat_status}")
+    if not sat_status: sys.exit(1)
 
-    if sat_status:
-        # fill in any missing assignments with True defualt
-        for variable in sat_instance.variables:
-            if variable not in assignments:
-                assignments[variable] = False
-        
-        # transform assignments to a string
-        output["Solution"] = (" ".join([f"{k} {v}" for k, v in assignments.items()])).lower()
-
-        # verify SAT
-        verified = verify_sat(sat_instance, assignments)
-        print("Verified:", verified)
-    
-    print(output)
-    
+    # display and verify the assignments
+    with np.printoptions(threshold=np.inf):
+        print(f"Assignments: {assignments}")
+    print(f"Verified: {verify_sat(sat_instance, assignments)}")
 
     
     

@@ -1,21 +1,37 @@
-class SATInstance:
-    def __init__(self, num_vars, num_clauses):
+import numpy as np
+
+class SatInstance:
+    def __init__(self, num_vars, clauses):
         self.num_vars = num_vars
-        self.num_clauses = num_clauses
-        self.variables = set()
-        self.assignments = dict()
-        self.clauses = []
+        self.clauses = clauses
     
     def __str__(self):
-        out = "SAT Instance:\n" \
-              + f"Number of variables: {self.num_vars}\n" \
-              + f"Number of clauses: {self.num_clauses}\n" \
-              + f"Variables: {self.variables}\nClauses: {self.clauses}\n" \
-              + f"Current assignments: {self.assignments}\n\n"
-        return out
+        return f"SatInstance(num_vars={self.num_vars}, num_clauses={len(self.clauses)})"
+    
+    @staticmethod
+    def from_dimacs(filename):
+        # read the file lines
+        with open(filename, "r") as f:
+            lines = f.readlines()
+        
+        # parse the lines
+        clauses = []
+        for line in lines:
+            # skip comments and problem line
+            if line.startswith("c") or line.startswith("p"):
+                continue
+            clause = [int(x) for x in line.split() if x != "0"]
+            clauses.append(clause)
 
-    def add_variable(self, variable):
-        self.variables.add(abs(variable))
+        # turn clauses into a numpy array
+        max_clause_len = len(max(clauses, key=len))
+        padded_clauses = [clause + [0] * (max_clause_len - len(clause)) for clause in clauses]
+        np_clauses = np.array(padded_clauses, dtype=int)
 
-    def add_clause(self, clause):
-        self.clauses.append(clause)
+        # TODO: remove the rows that only contain zeros ???
+        np_clauses = np_clauses[~np.all(np_clauses == 0, axis=1)]
+
+        # calculate number of variables
+        num_vars = np.max(np.abs(np_clauses))
+
+        return SatInstance(num_vars, np_clauses)
