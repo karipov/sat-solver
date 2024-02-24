@@ -20,6 +20,11 @@ class SatInstance:
             # skip comments and problem line
             if line.startswith("c") or line.startswith("p"):
                 continue
+            # skip if line is empty
+            if not line.strip():
+                continue
+            if line.strip() == "%" or line.strip() == "0":
+                continue
             clause = [int(x) for x in line.split() if x != "0"]
             clauses.append(clause)
 

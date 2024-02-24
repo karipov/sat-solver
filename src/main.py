@@ -15,7 +15,7 @@ parser.add_argument("input_file", help="The input file containing the SAT instan
 args = parser.parse_args()
 
 # logging
-logging.basicConfig(level=logging.WARN, format="[%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 
 if __name__ == "__main__":
@@ -24,6 +24,7 @@ if __name__ == "__main__":
     print(sat_instance)
 
     # initialize the assignments array
+    # default sets to false
     assignments = np.zeros(sat_instance.num_vars, dtype=int)
 
     # solve the SAT instance with timer
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     sat_status = solve(sat_instance, assignments)
     end_time = time.time()
 
+    print(f"Time elapsed: {end_time - start_time:.3f}s")
     print(f"SAT status: {sat_status}")
     if not sat_status: sys.exit(1)
 
@@ -38,6 +40,7 @@ if __name__ == "__main__":
     with np.printoptions(threshold=np.inf):
         print(f"Assignments: {assignments}")
     print(f"Verified: {verify_sat(sat_instance, assignments)}")
+   
 
     
     

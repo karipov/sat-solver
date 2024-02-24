@@ -2,6 +2,7 @@
 handout_code
 *.DS_Store
 results.log
+satlib
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,5 +1,7 @@
 import numpy as np
 from sat_instance import SatInstance
+from optimizations import jeroslow_wang, choose_random
+import numba
 
 import logging
 
@@ -17,7 +19,6 @@ def find_units(sat_instance) -> np.ndarray:
     # with exactly one non-zero value -- aka extract the unit literal
     mask = non_zero_elements_mask & rows_with_one_nonzero[:, np.newaxis]
 
-    # TODO: remove assert once we confirm it works
     output = sat_instance.clauses[mask]
     assert len(output.shape) == 1 # make sure the output is a 1D array
 
@@ -90,16 +91,31 @@ def splitting_rule(sat_instance) -> np.ndarray:
     and return a new clause with that literal.
     """
     K_TOP_SORT = 3
+    ALGORITHM = "random"
 
-    # flatten and remove all zeros
-    flat = sat_instance.clauses.flatten()
-    flat = flat[flat != 0]
+    chosen_literal = None
+    if ALGORITHM == "top-k":
+        # flatten and remove all zeros
+        flat = sat_instance.clauses.flatten()
+        flat = flat[flat != 0]
 
-    # find the top K_TOP_SORT most common literals
-    top_k = np.bincount(np.abs(flat)).argsort()[-K_TOP_SORT:][::-1]
+        # find the top K_TOP_SORT most common literals
+        top_k = np.bincount(np.abs(flat)).argsort()[-K_TOP_SORT:][::-1]
 
-    # randomly choose one of the top K_TOP_SORT most common literals
-    chosen_literal = np.random.choice(top_k)
+        # randomly choose one of the top K_TOP_SORT most common literals
+        chosen_literal = np.random.choice(top_k)
+    elif ALGORITHM == "jw":
+        # get the maximum scores for each variable in both phases
+        pos_scores, neg_scores = jeroslow_wang(sat_instance)
+        logging.info(f"pos_scores: {pos_scores}, neg_scores: {neg_scores}")
+        max_pos_index = np.argmax(pos_scores)
+        max_neg_index = np.argmax(neg_scores)
+
+        # choose the literal with the highest score (whether positive or negative)
+        chosen_literal = (max_pos_index + 1) if pos_scores[max_pos_index] > neg_scores[max_neg_index] else -(max_neg_index + 1)
+        chosen_literal += 1
+    elif ALGORITHM == "random":
+        chosen_literal = choose_random(sat_instance)
 
     # create a new clause with the chosen literal
     new_clause = np.zeros(sat_instance.clauses.shape[1], dtype=int)
@@ -130,16 +146,15 @@ def solve(sat_instance, assignments) -> bool:
 
     # check base cases
     if check_empty_clause(sat_instance):
+        logging.info("conflict detected")
         return False
     if check_no_clauses(sat_instance):
         return True
     
-    logging.info("Base cases passed")
-    
     # find unit clauses and do unit propagation
     units = find_units(sat_instance)
     if len(units) > 0:
-        logging.info(f"Unit clauses found: {units}")
+        logging.info(f"unit clauses found: {units}")
         unit_propagation(sat_instance, units, assignments)
         # recurse again to make sure we don't have any units left
         return solve(sat_instance, assignments)
@@ -147,7 +162,7 @@ def solve(sat_instance, assignments) -> bool:
     # find pure literals and do pure literal elimination
     pure_literals = find_pure_literals(sat_instance)
     if len(pure_literals) > 0:
-        logging.info(f"Pure literals found: {pure_literals}")
+        logging.info(f"pure literals found: {pure_literals}")
         pure_literal_elimination(sat_instance, pure_literals, assignments)
         return solve(sat_instance, assignments)
 
