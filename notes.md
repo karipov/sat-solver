@@ -67,7 +67,6 @@ bool bcp(most_recent_assignment) {
     // no more bcp implications
     return true;
 }
-
 ```
 
 ### resolveConflict()
