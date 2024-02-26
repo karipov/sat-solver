@@ -1,8 +1,10 @@
 Formula = Vector{Vector{Int}}
+Assignments = Dict{Int, Bool}
+Literal = Int
 
 mutable struct WatchedLiterals
-    # watchlists[variable] = [clause_index1, clause_index2, ...]
-    watchlists::Dict{Int, Vector{Int}}
+    # watchlists[literal] = [clause_index1, clause_index2, ...]
+    watchlists::Dict{Literal, Vector{Int}}
 
     # warray[clause_index] = (watched_literal1, watched_literal2)
     warray::Vector{Vector{Int}} 

@@ -1,6 +1,6 @@
 include("my_types.jl")
 
-function is_literal_true(literal::Int, assignments::Dict{Int, Bool})::AssignResult
+function is_literal_true(literal::Int, assignments::Assignments)::AssignResult
     variable = abs(literal)
     if haskey(assignments, variable)
         if (literal > 0) == assignments[variable]
@@ -11,4 +11,9 @@ function is_literal_true(literal::Int, assignments::Dict{Int, Bool})::AssignResu
     else
         return UNASSIGNED # unassigned case
     end
+end
+
+function assign_true!(literal::Int, assignments::Assignments)::Dict{Int, Bool}
+    variable = abs(literal)
+    assignments[variable] = (literal > 0)
 end
