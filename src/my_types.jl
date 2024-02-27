@@ -1,13 +1,14 @@
 Formula = Vector{Vector{Int}}
 Assignments = Dict{Int, Bool}
 Literal = Int
+DecisionStack = Vector{Tuple{Literal, Assignments}}
 
 mutable struct WatchedLiterals
     # watchlists[literal] = [clause_index1, clause_index2, ...]
     watchlists::Dict{Literal, Vector{Int}}
 
     # warray[clause_index] = (watched_literal1, watched_literal2)
-    warray::Vector{Vector{Int}} 
+    warray::Array{Literal, 2}
 end
 
 @enum SatResult UNSAT=0 SAT=1

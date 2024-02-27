@@ -13,7 +13,7 @@ function is_literal_true(literal::Int, assignments::Assignments)::AssignResult
     end
 end
 
-function assign_true!(literal::Int, assignments::Assignments)::Dict{Int, Bool}
+function assign_true!(literal::Int, assignments::Assignments)
     variable = abs(literal)
     assignments[variable] = (literal > 0)
 end

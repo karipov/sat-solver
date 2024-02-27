@@ -2,15 +2,13 @@
 include("my_types.jl")
 include("utils.jl")
 using DataStructures
+using PrettyPrint
 
 """
 Solve the given formula using the DPLL algorithm.
 """
-function solve(num_vars::Int, clauses::Formula, watched_literals::WatchedLiterals)::SatResult
-    # initialize empty decision stack with empty assignments
-    # TODO: move the decision stack outside of solve
-    # this would allow to check at the end of solve what the solution is!
-    decision_stack = Vector{Tuple{Literal, Assignments}}()
+function solve!(num_vars::Int, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack)::SatResult
+    # initialize the assignments
     new_assignments = Assignments()
 
     while true
@@ -22,12 +20,16 @@ function solve(num_vars::Int, clauses::Formula, watched_literals::WatchedLiteral
             return SAT
         end
 
+        println("")
+        println("Decision: ", decision)
+
         # otherwise, push the new assignments to the decision stack
         push!(decision_stack, (decision, new_assignments))
 
+        println("Decision stack: ", decision_stack)
+
         # we need to do BCP on the decision
-        bcp_out = bcp!(decision, clauses, watched_literals, new_assignments)
-        if bcp_out == false
+        while !bcp!(decision, clauses, watched_literals, last(decision_stack)[2])
             # if BCP results in a conflict, we need to resolve it
             resolution = resolve_conflict!(decision_stack)
 
@@ -35,10 +37,26 @@ function solve(num_vars::Int, clauses::Formula, watched_literals::WatchedLiteral
             if resolution == false
                 return UNSAT
             end
+
+            # resolve_conflict! will have updated the decision stack with the new decision
+            decision = last(decision_stack)[1]
+            println("")
+            println("New decision: ", decision)
         end
 
+        # bcp_out = bcp!(decision, clauses, watched_literals, last(decision_stack)[2])
+        # if bcp_out == false
+        #     # if BCP results in a conflict, we need to resolve it
+        #     resolution = resolve_conflict!(decision_stack)
+
+        #     # if resolution is not possible, return UNSAT
+        #     if resolution == false
+        #         return UNSAT
+        #     end
+        # end
+
         # copy the last assignments and make them the new ones
-        _, new_assignments = copy(last(decision_stack))
+        _, new_assignments = deepcopy(last(decision_stack))
     end
 end
 
@@ -47,6 +65,7 @@ end
 Remove off the decision stack until the conflict is resolved
 """
 function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}})
+    println("Conflict found! Resolving...")
 
     # pop until we have an empty decision stack
     while length(decision_stack) > 0
@@ -69,10 +88,13 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}})
 
             # copy the parent's assignments if possible (not root)
             if length(decision_stack) > 0
-                _, new_assignments = copy(last(decision_stack))
+                _, new_assignments = deepcopy(last(decision_stack))
             else
                 new_assignments = Assignments()
             end
+
+            # set the new decision to false
+            new_assignments[abs(new_decision)] = false
 
             # push the new decision and assignments to the stack
             # we have resolved the conflict and return true
@@ -89,11 +111,11 @@ end
 """
 Decide the next variable to assign
 """
-function decide!(num_vars::Int, new_assignments::Assignments)::Union{Literal, Bool}
+function decide!(num_vars::Int, assignments::Assignments)::Union{Literal, Bool}
     # choose first unassigned variable TODO: better heuristics
     variable = nothing
     for i in 1:num_vars
-        if i ∉ new_assignments
+        if i ∉ keys(assignments)
             variable = i
             break
         end
@@ -105,7 +127,7 @@ function decide!(num_vars::Int, new_assignments::Assignments)::Union{Literal, Bo
     end
 
     # assign the variable to true TODO: default is true?
-    new_assignments[variable] = true
+    assignments[variable] = true
 
     return variable
 end
@@ -114,49 +136,51 @@ end
 """
 Do Boolean Constraint Propagation (BCP) on the given formula
 """
-# TODO: turn this from a recursive function to a while loop that uses a queue
 function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Assignments)::Bool
-    # make sure to maintain the invariant
-    output = two_watch_invariant!(literal, clauses, watched_literals, assignments)
+    # initialize a queue to propagate
+    propagation_stack::Vector{Int} = [literal]
 
-    # if the clause is unsatisfied, return false
-    if output == false
-        return false
-    end
+    while length(propagation_stack) > 0
+        # pop the next literal to propagate
+        current_literal = pop!(propagation_stack)
 
-    # TODO: do I need to check if -literal and literal are both possible outputs?
-    # otherwise we have a bunch of units, propagate them
-    while !isempty(output)
-        unit = pop!(output)
+        # assign the literal
+        assign_true!(current_literal, assignments)
 
-        # assign the unit because it's an implication
-        assign_true!(unit, assignments)
+        # maintain the invariant for the literal
+        output = two_watch_invariant!(current_literal, clauses, watched_literals, assignments)
 
-        # if bcp results in a conflict, return false
-        if !bcp!(unit, clauses, watched_literals, assignments)
+        # if the clause is unsatisfied, return false
+        if output == false
             return false
         end
+
+        @assert typeof(output) == Vector{Literal}
+        println("Units found: ", output)
+
+        # otherwise we have a bunch of units we add to the queue
+        append!(propagation_stack, output)
     end
 
-    # if we are done, return true
+    # if we are done, return true (no conflict)
     return true
 end
 
 """
 Maintain the two-watched literals invariant for the given literal
 """
-function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int, Bool})::Bool
+function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int, Bool})::Union{Bool, Vector{Literal}}
     # get the watchlist for the opposite literal
-    watchlist = watched_literals.watchlists[-literal]
+    watchlist = get(watched_literals.watchlists, -literal, Int[])
 
     # queue for found unit clauses
-    unit_queue = Vector{Int}()
+    unit_queue = Vector{Literal}()
 
     # for each clause in the watchlist of that opposite literal
     for clause_index in watchlist
         # we have two watched literals l1 and l2
         # l2 is our -literal, which has just been assigned to false
-        currently_watched = watched_literals.warray[clause_index]
+        currently_watched = watched_literals.warray[clause_index, :]
         l1, l2 = currently_watched
         if l1 == -literal
             l1, l2 = l2, l1
@@ -187,16 +211,22 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
             new_literal = potential_literal
 
             # update the watchlist and warray
-            push!(watched_literals.watchlists[new_literal], clause_index)
-            watched_literals.warray[clause_index] = [l1, new_literal]
+            push!(get!(watched_literals.watchlists, new_literal, Int[]), clause_index)
+            watched_literals.warray[clause_index, :] = [l1, new_literal]
             
             # exit the loop for this clause once we find a new literal to watch
             break
         end
 
+        # TODO: debugging only, remove later
+        # if isnothing(new_literal)
+        #     println("did not find new literal to watch")
+        # end
+
         # if we didn't find a new literal to watch, and l1 is false
         # then the clause is unsatisfied (all literals are false)
         if isnothing(new_literal) && l1_status == FALSE
+            println("all false, clause is unsatisfied")
             return false
         end
 
@@ -206,6 +236,7 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
             push!(unit_queue, l1)
         end
     end
+
 
     # after we look at all clauses, we are done, return units
     return unit_queue
