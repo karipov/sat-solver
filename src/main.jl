@@ -6,20 +6,17 @@ using PrettyPrint
 
 
 function main()
-    clauses, (num_vars, num_clauses) = read_dimacs("inputs/upenn.cnf")
+    clauses, (num_vars, num_clauses) = read_dimacs("inputs/C140.cnf")
     println("Number of variables: ", num_vars)
     println("Number of clauses: ", num_clauses)
-    println("Clauses: ", clauses)
     println("")
 
     # initialize some things
     watched_literals = initialize_watched_literals(clauses)
     decision_stack = Vector{Tuple{Literal, Assignments}}()
 
-    println("Watched Literals: ", watched_literals)
-
     # run the DPLL algorithm
-    sat_result = solve!(num_vars, clauses, watched_literals, decision_stack)
+    sat_result = @time solve!(num_vars, clauses, watched_literals, decision_stack)
 
     println("")    
     # output the solution

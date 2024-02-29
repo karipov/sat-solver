@@ -20,13 +20,8 @@ function solve!(num_vars::Int, clauses::Formula, watched_literals::WatchedLitera
             return SAT
         end
 
-        println("")
-        println("Decision: ", decision)
-
         # otherwise, push the new assignments to the decision stack
         push!(decision_stack, (decision, new_assignments))
-
-        println("Decision stack: ", decision_stack)
 
         # we need to do BCP on the decision
         while !bcp!(decision, clauses, watched_literals, last(decision_stack)[2])
@@ -40,20 +35,7 @@ function solve!(num_vars::Int, clauses::Formula, watched_literals::WatchedLitera
 
             # resolve_conflict! will have updated the decision stack with the new decision
             decision = last(decision_stack)[1]
-            println("")
-            println("New decision: ", decision)
         end
-
-        # bcp_out = bcp!(decision, clauses, watched_literals, last(decision_stack)[2])
-        # if bcp_out == false
-        #     # if BCP results in a conflict, we need to resolve it
-        #     resolution = resolve_conflict!(decision_stack)
-
-        #     # if resolution is not possible, return UNSAT
-        #     if resolution == false
-        #         return UNSAT
-        #     end
-        # end
 
         # copy the last assignments and make them the new ones
         _, new_assignments = deepcopy(last(decision_stack))
@@ -64,8 +46,7 @@ end
 """
 Remove off the decision stack until the conflict is resolved
 """
-function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}})
-    println("Conflict found! Resolving...")
+function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}})::Bool
 
     # pop until we have an empty decision stack
     while length(decision_stack) > 0
@@ -123,6 +104,7 @@ function decide!(num_vars::Int, assignments::Assignments)::Union{Literal, Bool}
 
     # no more variables to assign
     if isnothing(variable)
+        # @assert length(keys(assignments)) == num_vars
         return false
     end
 
@@ -141,6 +123,7 @@ function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals,
     propagation_stack::Vector{Int} = [literal]
 
     while length(propagation_stack) > 0
+
         # pop the next literal to propagate
         current_literal = pop!(propagation_stack)
 
@@ -148,17 +131,18 @@ function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals,
         assign_true!(current_literal, assignments)
 
         # maintain the invariant for the literal
-        output = two_watch_invariant!(current_literal, clauses, watched_literals, assignments)
+        # TODO: using occurence lists now
+        # output = two_watch_invariant!(current_literal, clauses, watched_literals, assignments)
+        output = occurence_list!(current_literal, clauses, watched_literals, assignments)
+
 
         # if the clause is unsatisfied, return false
         if output == false
             return false
         end
 
-        @assert typeof(output) == Vector{Literal}
-        println("Units found: ", output)
-
         # otherwise we have a bunch of units we add to the queue
+        @assert typeof(output) == Vector{Literal}
         append!(propagation_stack, output)
     end
 
@@ -166,12 +150,88 @@ function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals,
     return true
 end
 
+
+"""
+Use watchlist as occurence list
+"""
+function occurence_list!(literal::Literal, clauses::Formula, watchlist::WatchedLiterals, assignments::Assignments)::Union{Bool, Vector{Literal}}
+    watchlist = get!(watchlist.watchlists, -literal, Int[])
+
+    # queue for found unit clauses
+    unit_queue = Vector{Literal}()
+
+    for clause_index in watchlist
+        clause = clauses[clause_index]
+
+        # get some clause statistics
+        false_counter = 0
+        found_true = false
+        latest_unassigned = nothing
+        for i_literal in clause
+            output = is_literal_true(i_literal, assignments)
+
+            if output == TRUE
+                found_true = true
+                break
+            end
+
+            if output == FALSE
+                false_counter += 1
+            end
+
+            if output == UNASSIGNED
+                latest_unassigned = i_literal
+            end
+        end
+
+        # if the clause is already satisfied, we do nothing
+        if found_true
+            continue
+        end
+
+        # if all literals are false, the clause is unsatisfied
+        if false_counter == length(clause)
+            return false
+        end
+
+        if false_counter == length(clause) - 1
+            # find the unassigned literal
+            push!(unit_queue, latest_unassigned)
+        end
+
+        # -----------------------------------------
+
+        # # if the clause is already satisfied, we do nothing
+        # if any(literal -> is_literal_true(literal, assignments) == TRUE, clause)
+        #     continue
+        # end
+
+        # false_count = count(literal -> is_literal_true(literal, assignments) == FALSE, clause)
+        # # if all literals are false, the clause is unsatisfied
+        # if false_count == length(clause)
+        #     return false
+        # end
+
+        # # find the unit literal otherwise
+        # unassigned_count = count(literal -> is_literal_true(literal, assignments) == UNASSIGNED, clause)
+        # if (length(clause) - 1) == false_count
+        #     # find the unassigned literal
+        #     unassigned_literal = filter(literal -> is_literal_true(literal, assignments) == UNASSIGNED, clause)[1]
+        #     push!(unit_queue, unassigned_literal)
+        # end
+        
+    end
+
+    return unit_queue
+end
+
+
 """
 Maintain the two-watched literals invariant for the given literal
 """
 function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int, Bool})::Union{Bool, Vector{Literal}}
     # get the watchlist for the opposite literal
-    watchlist = get(watched_literals.watchlists, -literal, Int[])
+    watchlist = get!(watched_literals.watchlists, -literal, Int[])
 
     # queue for found unit clauses
     unit_queue = Vector{Literal}()
@@ -186,10 +246,15 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
             l1, l2 = l2, l1
         end
 
+        @assert -literal in currently_watched
+        @assert is_literal_true(l2, assignments) == FALSE
+
         l1_status = is_literal_true(l1, assignments)
 
         # if l1 is true, we do nothing, the clause is satisfied
         if l1_status == TRUE
+            # check if any one of the literals is true under current assignments
+            @assert any(literal -> is_literal_true(literal, assignments) == TRUE, clauses[clause_index])            
             continue
         end
 
@@ -197,36 +262,47 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
         new_literal = nothing
 
         for potential_literal in clauses[clause_index]
+
+            # println("potential literal: $potential_literal")
+            # println("potential literal status: ", is_literal_true(potential_literal, assignments))
+
             # make sure the potential literal is not already watched
             if potential_literal in currently_watched
+                # println("potential literal $potential_literal is already watched")
                 continue
             end
 
             # make sure the potential literal is not falsified
-            if is_literal_true(potential_literal, assignments) == false
+            if is_literal_true(potential_literal, assignments) == FALSE
+                # println("potential literal $potential_literal is false")
                 continue
             end
 
             # we found a new literal to watch!
             new_literal = potential_literal
 
-            # update the watchlist and warray
+            # add the clause to the watchlist of the new literal
             push!(get!(watched_literals.watchlists, new_literal, Int[]), clause_index)
+
+            # remove the clause from the watchlist of the old literal
+            filter!(v -> v != clause_index, watched_literals.watchlists[l2])
+
+            # this clause has a new watcher
             watched_literals.warray[clause_index, :] = [l1, new_literal]
+            
+            @assert is_literal_true(l2, assignments) == FALSE
+            @assert is_literal_true(new_literal, assignments) != FALSE
             
             # exit the loop for this clause once we find a new literal to watch
             break
         end
 
-        # TODO: debugging only, remove later
-        # if isnothing(new_literal)
-        #     println("did not find new literal to watch")
-        # end
-
         # if we didn't find a new literal to watch, and l1 is false
         # then the clause is unsatisfied (all literals are false)
         if isnothing(new_literal) && l1_status == FALSE
-            println("all false, clause is unsatisfied")
+            # want to make sure everything is false!
+            @assert all(l -> is_literal_true(l, assignments) == FALSE, clauses[clause_index])
+
             return false
         end
 
@@ -236,6 +312,9 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
             push!(unit_queue, l1)
         end
     end
+
+    # check that all the found units are unassigned
+    @assert all(literal -> is_literal_true(literal, assignments) == UNASSIGNED, unit_queue)
 
 
     # after we look at all clauses, we are done, return units

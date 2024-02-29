@@ -11,6 +11,7 @@ function verify(clauses::Formula, assignments::Assignments)
             end
         end
         if !clause_satisfied
+            println("\nthe clause ", clause, " is not satisfied")
             return false
         end
     end
