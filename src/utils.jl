@@ -1,6 +1,6 @@
 include("my_types.jl")
 
-function is_literal_true(literal::Int, assignments::Assignments)::AssignResult
+function is_literal_true(literal::Literal, assignments::Assignments)::AssignResult
     variable = abs(literal)
     if haskey(assignments, variable)
         if (literal > 0) == assignments[variable]
@@ -13,7 +13,7 @@ function is_literal_true(literal::Int, assignments::Assignments)::AssignResult
     end
 end
 
-function assign_true!(literal::Int, assignments::Assignments)
+function assign_true!(literal::Literal, assignments::Assignments)
     variable = abs(literal)
     assignments[variable] = (literal > 0)
 end

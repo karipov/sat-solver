@@ -1,11 +1,11 @@
-Formula = Vector{Vector{Int}}
-Assignments = Dict{Int, Bool}
-Literal = Int
+Formula = Vector{Vector{Int16}}
+Assignments = Dict{Int16, Bool}
+Literal = Int16
 DecisionStack = Vector{Tuple{Literal, Assignments}}
 
-mutable struct WatchedLiterals
+struct WatchedLiterals
     # watchlists[literal] = [clause_index1, clause_index2, ...]
-    watchlists::Dict{Literal, Vector{Int}}
+    watchlists::Dict{Literal, Vector{Int16}}
 
     # warray[clause_index] = (watched_literal1, watched_literal2)
     warray::Array{Literal, 2}

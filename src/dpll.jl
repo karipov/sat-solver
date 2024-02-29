@@ -7,7 +7,7 @@ using PrettyPrint
 """
 Solve the given formula using the DPLL algorithm.
 """
-function solve!(num_vars::Int, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack)::SatResult
+function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack)::SatResult
     # initialize the assignments
     new_assignments = Assignments()
 
@@ -53,7 +53,7 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}}):
         # peek at the last decision
         decision, _ = last(decision_stack)
 
-        @assert decision != 0 
+        # @assert decision != 0 
 
         # since we only decide on true, if we find the decision is a true literal
         # then we know it hasn't been tried both ways. we can flip the decision then
@@ -62,7 +62,7 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}}):
         else
             # flip the decision to false
             new_decision = -decision
-            @assert new_decision < 0
+            # @assert new_decision < 0
 
             # remove the last decision with its assignments
             pop!(decision_stack)
@@ -92,10 +92,10 @@ end
 """
 Decide the next variable to assign
 """
-function decide!(num_vars::Int, assignments::Assignments)::Union{Literal, Bool}
+function decide!(num_vars::Int16, assignments::Assignments)::Union{Literal, Bool}
     # choose first unassigned variable TODO: better heuristics
     variable = nothing
-    for i in 1:num_vars
+    for i in Int16(1):num_vars
         if i ∉ keys(assignments)
             variable = i
             break
@@ -118,9 +118,9 @@ end
 """
 Do Boolean Constraint Propagation (BCP) on the given formula
 """
-function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Assignments)::Bool
+function bcp!(literal::Int16, clauses::Formula, watched_literals::WatchedLiterals, assignments::Assignments)::Bool
     # initialize a queue to propagate
-    propagation_stack::Vector{Int} = [literal]
+    propagation_stack::Vector{Int16} = [literal]
 
     while length(propagation_stack) > 0
 
@@ -142,7 +142,7 @@ function bcp!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals,
         end
 
         # otherwise we have a bunch of units we add to the queue
-        @assert typeof(output) == Vector{Literal}
+        # @assert typeof(output) == Vector{Literal}
         append!(propagation_stack, output)
     end
 
@@ -155,7 +155,7 @@ end
 Use watchlist as occurence list
 """
 function occurence_list!(literal::Literal, clauses::Formula, watchlist::WatchedLiterals, assignments::Assignments)::Union{Bool, Vector{Literal}}
-    watchlist = get!(watchlist.watchlists, -literal, Int[])
+    watchlist = get!(watchlist.watchlists, -literal, Int16[])
 
     # queue for found unit clauses
     unit_queue = Vector{Literal}()
@@ -229,9 +229,9 @@ end
 """
 Maintain the two-watched literals invariant for the given literal
 """
-function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int, Bool})::Union{Bool, Vector{Literal}}
+function two_watch_invariant!(literal::Int16, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int16, Bool})::Union{Bool, Vector{Literal}}
     # get the watchlist for the opposite literal
-    watchlist = get!(watched_literals.watchlists, -literal, Int[])
+    watchlist = get!(watched_literals.watchlists, -literal, Int16[])
 
     # queue for found unit clauses
     unit_queue = Vector{Literal}()
@@ -282,7 +282,7 @@ function two_watch_invariant!(literal::Int, clauses::Formula, watched_literals::
             new_literal = potential_literal
 
             # add the clause to the watchlist of the new literal
-            push!(get!(watched_literals.watchlists, new_literal, Int[]), clause_index)
+            push!(get!(watched_literals.watchlists, new_literal, Int16[]), clause_index)
 
             # remove the clause from the watchlist of the old literal
             filter!(v -> v != clause_index, watched_literals.watchlists[l2])

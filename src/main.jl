@@ -1,4 +1,4 @@
-include("dimacs.jl")
+include("processors.jl")
 include("dpll.jl")
 include("verification.jl")
 
@@ -6,7 +6,7 @@ using PrettyPrint
 
 
 function main()
-    clauses, (num_vars, num_clauses) = read_dimacs("inputs/C140.cnf")
+    clauses, (num_vars, num_clauses) = read_dimacs(ARGS[1])
     println("Number of variables: ", num_vars)
     println("Number of clauses: ", num_clauses)
     println("")
@@ -15,19 +15,18 @@ function main()
     watched_literals = initialize_watched_literals(clauses)
     decision_stack = Vector{Tuple{Literal, Assignments}}()
 
+    start_time = time()
     # run the DPLL algorithm
-    sat_result = @time solve!(num_vars, clauses, watched_literals, decision_stack)
+    sat_result = solve!(num_vars, clauses, watched_literals, decision_stack)
+    end_time = time()
 
-    println("")    
-    # output the solution
-    if sat_result == UNSAT
-        println("UNSAT")
-    else
-        println("SAT")
-        println("Solution: ")
-        pprint(last(decision_stack)[2])
-        println("\nVerified?: ", verify(clauses, last(decision_stack)[2]))
+    if length(decision_stack) > 0
+        println("Verified? ", verify(clauses, decision_stack[end][2]))
     end
+
+    println()
+    println(output_as_json(ARGS[1], decision_stack, sat_result, end_time - start_time))
+    
     
 end
 

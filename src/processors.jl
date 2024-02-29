@@ -3,7 +3,7 @@ include("my_types.jl")
 """
 Read the DIMACS file and return the clauses and the number of variables and clauses
 """
-function read_dimacs(filename::String)::Tuple{Formula, Tuple{Int, Int}}
+function read_dimacs(filename::String)::Tuple{Formula, Tuple{Int16, Int16}}
     lines = readlines(filename)
 
     clauses = Formula()
@@ -25,7 +25,7 @@ function read_dimacs(filename::String)::Tuple{Formula, Tuple{Int, Int}}
         
 
         # parse clause
-        clause = [parse(Int, x) for x in split(strip(line)) if x != "0"]
+        clause = [parse(Int16, x) for x in split(strip(line)) if x != "0"]
         push!(clauses, clause)
     end
 
@@ -43,27 +43,55 @@ function initialize_watched_literals(clauses::Formula)::WatchedLiterals
     watched_literals = WatchedLiterals(Dict(), zeros(Literal, length(clauses), 2))
 
     for (i, clause) in enumerate(clauses)
-
         for literal in clause
-            push!(get!(watched_literals.watchlists, literal, Int[]), i)
+            push!(get!(watched_literals.watchlists, literal, Int16[]), i)
         end
 
-        # TODO: uncomment for 2-watched literals
-        # # choose the first two literals to watch
-        # l1, l2 = clause[1], clause[2]
-
-        # # add the literals to the watchlists
-        # push!(get!(watched_literals.watchlists, l1, Int[]), i)
-        # push!(get!(watched_literals.watchlists, l2, Int[]), i)
-
-        # # add the literals to the warrays
-        # watched_literals.warray[i, :] = [l1, l2]
     end
 
-    # make sure we don't have any 0s remaining in the warray
-    # @assert all(x -> x != 0, watched_literals.warray)
-
     return watched_literals
+end
+
+
+function output_as_json(filename::String, decision_stack::DecisionStack, status::SatResult, time::Float64)
+    json = Vector()
+
+    push!(json, ("Instance", split(filename, "/")[end]))
+    push!(json, ("Time", time))
+
+    if status == SAT
+        push!(json, ("Status", "SAT"))
+        solution = last(decision_stack)[2]
+        solution_list = [(k, v) for (k, v) in solution]
+        sort!(solution_list)
+        push!(json, ("Solution", join([string(k, " ", v) for (k, v) in solution_list], " ")))
+    else
+        push!(json, ("Status", "UNSAT"))
+    end
+
+    return jsonify(json)
+end
+
+
+function jsonify(dict::Vector)::String
+    output_str = "{"
+
+    for (key, value) in dict
+        if typeof(value) == String
+            output_str *= "\"$key\": \"$value\""
+        elseif typeof(value) == Float64
+            output_str *= "\"$key\": $(round(value, digits=2))"
+        else
+            output_str *= "\"$key\": $value"
+        end
+
+        output_str *= ", "
+    end
+
+    output_str = replace(output_str, r", $"=>"")
+    output_str *= "}"
+
+    return output_str
 end
 
 
