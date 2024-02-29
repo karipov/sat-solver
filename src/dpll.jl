@@ -1,8 +1,6 @@
 
 include("my_types.jl")
 include("utils.jl")
-using DataStructures
-using PrettyPrint
 
 """
 Solve the given formula using the DPLL algorithm.

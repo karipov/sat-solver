@@ -2,9 +2,6 @@ include("processors.jl")
 include("dpll.jl")
 include("verification.jl")
 
-using PrettyPrint
-
-
 function main()
     clauses, (num_vars, num_clauses) = read_dimacs(ARGS[1])
     println("Number of variables: ", num_vars)
