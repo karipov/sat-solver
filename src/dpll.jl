@@ -6,17 +6,30 @@ include("heuristics.jl")
 """
 Solve the given formula using the DPLL algorithm.
 """
-function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack, jw_indices::Vector{Int16})::SatResult
+function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack)::SatResult
     # initialize the assignments
     new_assignments = Assignments()
 
+    # initialize the decision counter
+    counter = 0
+
+    # initialize the Jeroslow-Wang heuristic
+    jw_weights = zeros(Float32, num_vars)
+    jw_indices = zeros(Int16, num_vars)
+    jeroslow_wang!(new_assignments, clauses, jw_weights, jw_indices)
+
     while true
+        # recompute the Jeroslow-Wang heuristic every 10_000 decisions
+        counter += 1
+        if counter % 10_000 == 0
+            jeroslow_wang!(new_assignments, clauses, jw_weights, jw_indices)
+        end
+
         # decide the next variable to assign, add it to the decision stack
 
         # choose which heuristic you want to use
         # decision = decide_random!(num_vars, new_assignments)
         decision = pick_variable_jw!(jw_indices, new_assignments)
-        # decision = pick_variable_conflicts!(new_assignments)
 
         # if there are no more variables to assign, we are done
         if decision == false

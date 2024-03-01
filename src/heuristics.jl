@@ -3,35 +3,51 @@ include("my_types.jl")
 """
 Calculate two-sided Jeroslow-Wang heuristic
 """
-function jeroslow_wang(num_vars::Int16, clauses::Formula)::Vector{Int16}
-    jw = zeros(Float32, num_vars)
+function jeroslow_wang!(assignments::Assignments, clauses::Formula, jw_weights::Vector{Float32}, jw_indices::Vector{Int16})
+    # reset the weights
+    fill!(jw_weights, zero(Float32))
 
+    # calculate the weights
     for clause in clauses
+        # don't consider the clause if it's already satisfied
+        if is_clause_satisfied(clause, assignments)
+            continue
+        end
+
+        # proportion of clause length
         for literal in clause
-            jw[abs(literal)] += 2.0^-length(clause)
+            jw_weights[abs(literal)] += 2.0^-length(clause)
         end
     end
 
-    indices = sortperm(jw, rev=true)
-    return map(Int16, indices)
+    sortperm!(jw_indices, jw_weights, rev=true, alg=QuickSort)
 end
 
 """
 Pick the variable with the highest Jeroslow-Wang score
+Randomize slightly
 """
 function pick_variable_jw!(jw_indices::Vector{Int16}, assignments::Assignments)::Union{Int16, Bool}
+    # choose randomly from the top 3 unassigned variables
+    top_k_variables = Int16[]
 
     variable = nothing
     for i in jw_indices
         if i ∉ keys(assignments)
-            variable = i
-            break
+            push!(top_k_variables, i)
+
+            if length(top_k_variables) >= 3
+                break
+            end
         end
     end
 
-    if isnothing(variable)
+    if isempty(top_k_variables)
         return false
     end
+
+    # Randomly pick one of the up to 3 unassigned variables
+    variable = rand(top_k_variables)
 
     # assign the variable to true TODO: default is true?
     assignments[variable] = true
