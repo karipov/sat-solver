@@ -3,14 +3,16 @@ include("my_types.jl")
 """
 Calculate two-sided Jeroslow-Wang heuristic
 """
-function jeroslow_wang!(assignments::Assignments, clauses::Formula, jw_weights::Vector{Float32}, jw_indices::Vector{Int16})
+function jeroslow_wang!(assignments::Assignments, clauses::Formula, jw_weights::Vector{Float32}, jw_indices::Vector{Int16})::Bool
     # reset the weights
     fill!(jw_weights, zero(Float32))
 
+    sat_clause_counter = Int16(0)
     # calculate the weights
     for clause in clauses
         # don't consider the clause if it's already satisfied
         if is_clause_satisfied(clause, assignments)
+            sat_clause_counter += 1
             continue
         end
 
@@ -21,6 +23,8 @@ function jeroslow_wang!(assignments::Assignments, clauses::Formula, jw_weights::
     end
 
     sortperm!(jw_indices, jw_weights, rev=true, alg=QuickSort)
+
+    return (sat_clause_counter == length(clauses))
 end
 
 """
@@ -49,7 +53,7 @@ function pick_variable_jw!(jw_indices::Vector{Int16}, assignments::Assignments):
     # Randomly pick one of the up to 3 unassigned variables
     variable = rand(top_k_variables)
 
-    # assign the variable to true TODO: default is true?
+    # assign the variable to true
     assignments[variable] = true
 
     return variable
@@ -59,7 +63,7 @@ end
 Decide randomly the next variable to assign
 """
 function random_decide!(num_vars::Int16, assignments::Assignments)::Union{Literal, Bool}
-    # choose first unassigned variable TODO: better heuristics
+    # choose first unassigned variable
     variable = nothing
     for i in Int16(1):num_vars
         if i ∉ keys(assignments)

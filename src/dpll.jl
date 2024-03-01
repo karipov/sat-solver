@@ -19,14 +19,7 @@ function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLite
     jeroslow_wang!(new_assignments, clauses, jw_weights, jw_indices)
 
     while true
-        # recompute the Jeroslow-Wang heuristic every 10_000 decisions
-        counter += 1
-        if counter % 10_000 == 0
-            jeroslow_wang!(new_assignments, clauses, jw_weights, jw_indices)
-        end
-
-        # decide the next variable to assign, add it to the decision stack
-
+        # pick a variable to assign
         # choose which heuristic you want to use
         # decision = decide_random!(num_vars, new_assignments)
         decision = pick_variable_jw!(jw_indices, new_assignments)
@@ -38,6 +31,19 @@ function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLite
 
         # otherwise, push the new assignments to the decision stack
         push!(decision_stack, (decision, new_assignments))
+
+        # recompute the Jeroslow-Wang heuristic every 10_000 decisions
+        counter += 1
+        if counter % 10_000 == 0
+            early_stop = jeroslow_wang!(new_assignments, clauses, jw_weights, jw_indices)
+
+            # as we recompute the heuristic, we check if we can stop early
+            if early_stop
+                assign_nonassigned!(num_vars, new_assignments)
+                return SAT
+            end
+
+        end
 
         # we need to do BCP on the decision
         while !bcp!(decision, clauses, watched_literals, last(decision_stack)[2])
