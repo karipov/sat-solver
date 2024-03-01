@@ -3,6 +3,10 @@ include("dpll.jl")
 include("verification.jl")
 include("heuristics.jl")
 
+# # global conflicts counter
+# CONFLICTS = nothing
+# CONFLICTS_IDX = nothing
+
 function main()
     clauses, (num_vars, num_clauses) = read_dimacs(ARGS[1])
     println("Number of variables: ", num_vars)
@@ -12,6 +16,10 @@ function main()
     # initialize some things
     watched_literals = initialize_watched_literals(clauses)
     decision_stack = Vector{Tuple{Literal, Assignments}}()
+
+    # global CONFLICTS, CONFLICTS_IDX
+    # CONFLICTS = zeros(Float32, num_vars)
+    # CONFLICTS_IDX = Vector{Int16}()
 
     start_time = time()
 
@@ -28,8 +36,6 @@ function main()
 
     println()
     println(output_as_json(ARGS[1], decision_stack, sat_result, end_time - start_time))
-    
-    
 end
 
 

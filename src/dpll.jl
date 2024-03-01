@@ -16,6 +16,7 @@ function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLite
         # choose which heuristic you want to use
         # decision = decide_random!(num_vars, new_assignments)
         decision = pick_variable_jw!(jw_indices, new_assignments)
+        # decision = pick_variable_conflicts!(new_assignments)
 
         # if there are no more variables to assign, we are done
         if decision == false
@@ -171,6 +172,7 @@ function occurence_list!(
 
         # if all literals are false, the clause is unsatisfied
         if false_counter == length(clause)
+            # conflict_increase!(clause)
             return false
         end
 

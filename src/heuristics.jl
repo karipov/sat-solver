@@ -1,42 +1,5 @@
 include("my_types.jl")
 
-
-function conflict_increase!(conflicts::Vector{Float32}, clause::Vector{Int16})
-    for literal in clause
-        conflicts[abs(literal)] += 1
-    end
-end
-
-
-function conflict_halve!(conflicts::Vector{Float32})
-    for i in 1:length(conflicts)
-        conflicts[i] /=  2
-    end
-end
-
-function conflict_compute!(conflicts::Vector{Float32})::Vector{Int16}
-    return sortperm(conflicts, rev=true)
-end
-
-
-function pick_variable_conflicts!(conflicts_idx, assignments::Assignments)::Union{Int16, Bool}
-    variable = nothing
-    for i in conflicts
-        if i ∉ keys(assignments)
-            variable = i
-            break
-        end
-    end
-
-    if isnothing(variable)
-        return false
-    end
-
-    assignments[variable] = true
-
-    return variable
-end
-
 """
 Calculate two-sided Jeroslow-Wang heuristic
 """
@@ -98,3 +61,44 @@ function random_decide!(num_vars::Int16, assignments::Assignments)::Union{Litera
 
     return variable
 end
+
+# function conflict_increase!(clause::Vector{Int16})
+#     global CONFLICTS
+
+#     for literal in clause
+#         CONFLICTS[abs(literal)] += 1
+#     end
+# end
+
+# function conflict_halve!()
+#     global CONFLICTS
+
+#     CONFLICTS /= 2
+# end
+
+# function conflict_compute!()
+#     global CONFLICTS, CONFLICTS_IDX
+
+#     indices = sortperm(CONFLICTS, rev=true)
+#     CONFLICTS_IDX = map(Int16, indices)
+# end
+
+# function pick_variable_conflicts!(assignments::Assignments)::Union{Int16, Bool}
+#     global CONFLICTS_IDX
+
+#     variable = nothing
+#     for i in CONFLICTS_IDX
+#         if i ∉ keys(assignments)
+#             variable = i
+#             break
+#         end
+#     end
+
+#     if isnothing(variable)
+#         return false
+#     end
+
+#     assignments[variable] = true
+
+#     return variable
+# end
