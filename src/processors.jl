@@ -65,13 +65,13 @@ function output_as_json(filename::String, decision_stack::DecisionStack, status:
     push!(json, ("Time", time))
 
     if status == SAT
-        push!(json, ("Status", "SAT"))
+        push!(json, ("Result", "SAT"))
         solution = last(decision_stack)[2]
         solution_list = [(k, v) for (k, v) in solution]
         sort!(solution_list)
         push!(json, ("Solution", join([string(k, " ", v) for (k, v) in solution_list], " ")))
     else
-        push!(json, ("Status", "UNSAT"))
+        push!(json, ("Result", "UNSAT"))
     end
 
     return jsonify(json)
