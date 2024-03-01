@@ -39,6 +39,9 @@ function read_dimacs(filename::String)::Tuple{Formula, Tuple{Int16, Int16}}
     return clauses, (num_vars, num_clauses)
 end
 
+"""
+Initializes watched literals datastructure (in this case occurence lists)
+"""
 function initialize_watched_literals(clauses::Formula)::WatchedLiterals
     watched_literals = WatchedLiterals(Dict(), zeros(Literal, length(clauses), 2))
 
@@ -46,13 +49,15 @@ function initialize_watched_literals(clauses::Formula)::WatchedLiterals
         for literal in clause
             push!(get!(watched_literals.watchlists, literal, Int16[]), i)
         end
-
     end
 
     return watched_literals
 end
 
 
+"""
+Output the result of the DPLL algorithm as a JSON string
+"""
 function output_as_json(filename::String, decision_stack::DecisionStack, status::SatResult, time::Float64)
     json = Vector()
 
@@ -73,11 +78,14 @@ function output_as_json(filename::String, decision_stack::DecisionStack, status:
 end
 
 
+"""
+Convert an ordered dictionary to a JSON string
+"""
 function jsonify(dict::Vector)::String
     output_str = "{"
 
     for (key, value) in dict
-        if typeof(value) == String
+        if typeof(value) <: AbstractString
             output_str *= "\"$key\": \"$value\""
         elseif typeof(value) == Float64
             output_str *= "\"$key\": $(round(value, digits=2))"

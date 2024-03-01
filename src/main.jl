@@ -1,6 +1,7 @@
 include("processors.jl")
 include("dpll.jl")
 include("verification.jl")
+include("heuristics.jl")
 
 function main()
     clauses, (num_vars, num_clauses) = read_dimacs(ARGS[1])
@@ -13,8 +14,12 @@ function main()
     decision_stack = Vector{Tuple{Literal, Assignments}}()
 
     start_time = time()
+
+    # calcualte jw once (static)
+    jw_indices = jeroslow_wang(num_vars, clauses)
     # run the DPLL algorithm
-    sat_result = solve!(num_vars, clauses, watched_literals, decision_stack)
+    sat_result = solve!(num_vars, clauses, watched_literals, decision_stack, jw_indices)
+
     end_time = time()
 
     if length(decision_stack) > 0

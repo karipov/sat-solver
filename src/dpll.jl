@@ -1,17 +1,21 @@
 
 include("my_types.jl")
 include("utils.jl")
+include("heuristics.jl")
 
 """
 Solve the given formula using the DPLL algorithm.
 """
-function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack)::SatResult
+function solve!(num_vars::Int16, clauses::Formula, watched_literals::WatchedLiterals, decision_stack::DecisionStack, jw_indices::Vector{Int16})::SatResult
     # initialize the assignments
     new_assignments = Assignments()
 
     while true
         # decide the next variable to assign, add it to the decision stack
-        decision = decide!(num_vars, new_assignments)
+
+        # choose which heuristic you want to use
+        # decision = decide_random!(num_vars, new_assignments)
+        decision = pick_variable_jw!(jw_indices, new_assignments)
 
         # if there are no more variables to assign, we are done
         if decision == false
@@ -51,7 +55,6 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}}):
         # peek at the last decision
         decision, _ = last(decision_stack)
 
-        # @assert decision != 0 
 
         # since we only decide on true, if we find the decision is a true literal
         # then we know it hasn't been tried both ways. we can flip the decision then
@@ -60,7 +63,6 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}}):
         else
             # flip the decision to false
             new_decision = -decision
-            # @assert new_decision < 0
 
             # remove the last decision with its assignments
             pop!(decision_stack)
@@ -87,36 +89,14 @@ function resolve_conflict!(decision_stack::Vector{Tuple{Literal, Assignments}}):
     return false
 end
 
-"""
-Decide the next variable to assign
-"""
-function decide!(num_vars::Int16, assignments::Assignments)::Union{Literal, Bool}
-    # choose first unassigned variable TODO: better heuristics
-    variable = nothing
-    for i in Int16(1):num_vars
-        if i ∉ keys(assignments)
-            variable = i
-            break
-        end
-    end
-
-    # no more variables to assign
-    if isnothing(variable)
-        # @assert length(keys(assignments)) == num_vars
-        return false
-    end
-
-    # assign the variable to true TODO: default is true?
-    assignments[variable] = true
-
-    return variable
-end
-
 
 """
 Do Boolean Constraint Propagation (BCP) on the given formula
 """
-function bcp!(literal::Int16, clauses::Formula, watched_literals::WatchedLiterals, assignments::Assignments)::Bool
+function bcp!(
+    literal::Int16, clauses::Formula, watched_literals::WatchedLiterals,
+    assignments::Assignments)::Bool
+
     # initialize a queue to propagate
     propagation_stack::Vector{Int16} = [literal]
 
@@ -129,7 +109,7 @@ function bcp!(literal::Int16, clauses::Formula, watched_literals::WatchedLiteral
         assign_true!(current_literal, assignments)
 
         # maintain the invariant for the literal
-        # TODO: using occurence lists now
+        # (using occurence lists now)
         # output = two_watch_invariant!(current_literal, clauses, watched_literals, assignments)
         output = occurence_list!(current_literal, clauses, watched_literals, assignments)
 
@@ -140,7 +120,6 @@ function bcp!(literal::Int16, clauses::Formula, watched_literals::WatchedLiteral
         end
 
         # otherwise we have a bunch of units we add to the queue
-        # @assert typeof(output) == Vector{Literal}
         append!(propagation_stack, output)
     end
 
@@ -152,7 +131,10 @@ end
 """
 Use watchlist as occurence list
 """
-function occurence_list!(literal::Literal, clauses::Formula, watchlist::WatchedLiterals, assignments::Assignments)::Union{Bool, Vector{Literal}}
+function occurence_list!(
+    literal::Literal, clauses::Formula,
+    watchlist::WatchedLiterals, assignments::Assignments)::Union{Bool, Vector{Literal}}
+
     watchlist = get!(watchlist.watchlists, -literal, Int16[])
 
     # queue for found unit clauses
@@ -196,27 +178,6 @@ function occurence_list!(literal::Literal, clauses::Formula, watchlist::WatchedL
             # find the unassigned literal
             push!(unit_queue, latest_unassigned)
         end
-
-        # -----------------------------------------
-
-        # # if the clause is already satisfied, we do nothing
-        # if any(literal -> is_literal_true(literal, assignments) == TRUE, clause)
-        #     continue
-        # end
-
-        # false_count = count(literal -> is_literal_true(literal, assignments) == FALSE, clause)
-        # # if all literals are false, the clause is unsatisfied
-        # if false_count == length(clause)
-        #     return false
-        # end
-
-        # # find the unit literal otherwise
-        # unassigned_count = count(literal -> is_literal_true(literal, assignments) == UNASSIGNED, clause)
-        # if (length(clause) - 1) == false_count
-        #     # find the unassigned literal
-        #     unassigned_literal = filter(literal -> is_literal_true(literal, assignments) == UNASSIGNED, clause)[1]
-        #     push!(unit_queue, unassigned_literal)
-        # end
         
     end
 
@@ -226,8 +187,12 @@ end
 
 """
 Maintain the two-watched literals invariant for the given literal
+-------------- !!! CURRENTLY NOT WORKING !!! --------------
 """
-function two_watch_invariant!(literal::Int16, clauses::Formula, watched_literals::WatchedLiterals, assignments::Dict{Int16, Bool})::Union{Bool, Vector{Literal}}
+function two_watch_invariant!(
+    literal::Int16, clauses::Formula, watched_literals::WatchedLiterals,
+    assignments::Dict{Int16, Bool})::Union{Bool, Vector{Literal}}
+
     # get the watchlist for the opposite literal
     watchlist = get!(watched_literals.watchlists, -literal, Int16[])
 
@@ -252,7 +217,8 @@ function two_watch_invariant!(literal::Int16, clauses::Formula, watched_literals
         # if l1 is true, we do nothing, the clause is satisfied
         if l1_status == TRUE
             # check if any one of the literals is true under current assignments
-            @assert any(literal -> is_literal_true(literal, assignments) == TRUE, clauses[clause_index])            
+            @assert any(literal -> is_literal_true(literal, assignments) == TRUE,
+                        clauses[clause_index])            
             continue
         end
 
@@ -260,9 +226,6 @@ function two_watch_invariant!(literal::Int16, clauses::Formula, watched_literals
         new_literal = nothing
 
         for potential_literal in clauses[clause_index]
-
-            # println("potential literal: $potential_literal")
-            # println("potential literal status: ", is_literal_true(potential_literal, assignments))
 
             # make sure the potential literal is not already watched
             if potential_literal in currently_watched
@@ -272,7 +235,6 @@ function two_watch_invariant!(literal::Int16, clauses::Formula, watched_literals
 
             # make sure the potential literal is not falsified
             if is_literal_true(potential_literal, assignments) == FALSE
-                # println("potential literal $potential_literal is false")
                 continue
             end
 
